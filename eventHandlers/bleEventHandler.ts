@@ -1,4 +1,4 @@
-import { BLEManager } from "../bleManager";
+import { BLEManager } from "../ble/bleManager";
 import { useDeviceStore } from "../state/store";
 
 export class BLEEventHandler {

@@ -1,4 +1,4 @@
-import React, { use, useEffect, useMemo, useState } from "react";
+import React, { useState } from "react";
 import {
   Modal,
   View,
@@ -41,6 +41,10 @@ export const AddDevice = ({
     setDeviceName(`My ${type} ${updatedCount + 1}`);
   };
 
+  const handleCancel = () => {
+    onCancel();
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.modalContainer}>
@@ -71,7 +75,7 @@ export const AddDevice = ({
             onChangeText={setDeviceName}
           />
           <View style={styles.buttonContainer}>
-            <Button title="Cancel" onPress={onCancel} />
+            <Button title="Cancel" onPress={handleCancel} />
             <Button
               title="Add Device"
               onPress={() => onAddDevice(selectedDeviceType, deviceName)}

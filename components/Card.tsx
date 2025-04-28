@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View, Button } from "react-native";
-import { BLEManager } from "../bleManager";
+import { BLEManager } from "../ble/bleManager";
 import { useDeviceStore } from "../state/store";
 import { useThings } from "../mocks/MockCloud";
 

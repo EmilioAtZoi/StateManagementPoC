@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import { Card } from "./components/Card";
 import { AddDevice } from "./components/AddDevice";
 import { useThings } from "./mocks/MockCloud";
-import { BLEManager } from "./bleManager";
+import { BLEManager } from "./ble/bleManager";
 import { BLEEventHandler } from "./eventHandlers/bleEventHandler";
 
 export default function App() {
