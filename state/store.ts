@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { QueueSystem } from "../queueSystem"; // Import the queue system
+import { QueueSystem } from "./queueSystem"; // Import the queue system
 
 export interface StateRecord {
   value: boolean | string | number | any[] | Record<string, any>;
@@ -17,37 +17,13 @@ interface Device {
 
 interface DeviceState {
   devices: Record<string, Device>;
-  addDevice: (id: string) => Promise<void>;
   updateDeviceState: (id: string, key: string, record: StateRecord) => void;
+  removeDevice: (id: string) => void;
 }
 
 export const useDeviceStore = create<DeviceState>((set) => ({
   devices: {},
-  addDevice: async (id) => {
-    try {
-      const newDevice: Device = {
-        id,
-        state: {},
-      };
-
-      set((state) => ({
-        devices: {
-          ...state.devices,
-          [newDevice.id]: newDevice,
-        },
-      }));
-
-      // Push the new device to the queue system
-      QueueSystem.push({
-        type: "ADD_DEVICE",
-        payload: { id },
-      });
-    } catch (error) {
-      console.error("Failed to register device:", error);
-    }
-  },
-
-  // Update a specific state record for a device
+  // Update a specific state record for a device or create a new one if it doesn't exist
   updateDeviceState: (id, key, record) => {
     set((state) => {
       let device = state.devices[id];
@@ -78,4 +54,11 @@ export const useDeviceStore = create<DeviceState>((set) => ({
       };
     });
   },
+  // Remove a device from the store
+  removeDevice: (id) =>
+    set((state) => {
+      const { [id]: _, ...remainingDevices } = state.devices;
+      // Return the updated state
+      return { devices: remainingDevices };
+    }),
 }));

@@ -19,10 +19,6 @@ export class MockBLEDevice {
         id: id ?? this.id,
         connected: this.connected,
       });
-      DeviceEventEmitter.emit("deviceStatusChange", {
-        id: id ?? this.id,
-        status: { connected: this.connected },
-      });
     }
   }
 
@@ -33,10 +29,6 @@ export class MockBLEDevice {
       DeviceEventEmitter.emit("connectionChange", {
         id: id ?? this.id,
         connected: this.connected,
-      });
-      DeviceEventEmitter.emit("deviceStatusChange", {
-        id: id ?? this.id,
-        status: { connected: this.connected },
       });
     }
   }

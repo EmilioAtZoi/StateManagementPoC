@@ -32,7 +32,15 @@ export default function App() {
   return (
     <>
       <View style={styles.container}>
-        <Button title="Add device" onPress={() => setIsVisible(true)} />
+        <View style={styles.inlineButtons}>
+          <Button
+            title="Delete all"
+            onPress={deleteAllThings}
+            color="red"
+            disabled={things.length === 0}
+          />
+          <Button title="Add device" onPress={() => setIsVisible(true)} />
+        </View>
         <FlatList
           data={things}
           keyExtractor={(item) => item.id}
@@ -41,20 +49,14 @@ export default function App() {
           )}
           style={{ width: "100%" }}
         />
-        <Button
-          title="Delete all devices"
-          onPress={deleteAllThings}
-          color="red"
-          disabled={things.length === 0}
+        <AddDevice
+          visible={isVisible}
+          onCancel={() => setIsVisible(false)}
+          onAddDevice={handleRegistration}
+          count={thingsCount}
         />
         <StatusBar style="auto" />
       </View>
-      <AddDevice
-        visible={isVisible}
-        count={thingsCount}
-        onCancel={() => setIsVisible(false)}
-        onAddDevice={handleRegistration}
-      />
     </>
   );
 }
@@ -67,5 +69,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 16,
     marginTop: 50,
+  },
+  inlineButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+    marginBottom: 16,
   },
 });

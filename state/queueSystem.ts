@@ -1,4 +1,5 @@
-import { cloudSyncManager } from "../services/syncService"; // Adjust the import path as needed
+import { updateCloudDeviceState } from "../services/syncService";
+import { useDeviceStore } from "./store";
 
 type QueueItem = {
   type: string; // Action type (e.g., "ADD_DEVICE", "UPDATE_DEVICE_STATE")
@@ -43,16 +44,6 @@ class QueueSystem {
   // Handle individual queue items
   private static async handleItem(item: QueueItem) {
     switch (item.type) {
-      case "ADD_DEVICE":
-        if ("id" in item.payload && typeof item.payload.id === "string") {
-          await this.syncAddDevice(item.payload as { id: string });
-        } else {
-          console.error(
-            `QueueSystem: Invalid payload for ADD_DEVICE`,
-            item.payload
-          );
-        }
-        break;
       case "UPDATE_DEVICE_STATE":
         if (
           "id" in item.payload &&
@@ -82,16 +73,6 @@ class QueueSystem {
     }
   }
 
-  // Simulate syncing a new device with the cloud
-  private static async syncAddDevice(payload: { id: string }) {
-    console.log(`QueueSystem: Syncing new device with ID ${payload.id}`);
-    // Simulate a delay for cloud synchronization
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    console.log(
-      `QueueSystem: Device with ID ${payload.id} synced successfully`
-    );
-  }
-
   // Sync an updated device state with the cloud
   private static async syncUpdateDeviceState(payload: {
     id: string;
@@ -102,11 +83,17 @@ class QueueSystem {
       `QueueSystem: Syncing updated state for device with ID ${payload.id}, key "${payload.key}"`
     );
     try {
-      await cloudSyncManager.updateDeviceState(
+      // Get the store's update function directly
+      const updateDeviceState = useDeviceStore.getState().updateDeviceState;
+
+      // Use cloud sync with ability to update local state if cloud is newer
+      await updateCloudDeviceState(
         payload.id,
         payload.key,
-        payload.record
-      ); // Use the updateThing function directly
+        payload.record,
+        updateDeviceState // Pass the store's update function
+      );
+
       console.log(
         `QueueSystem: State for device with ID ${payload.id} synced successfully`
       );

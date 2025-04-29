@@ -1,51 +1,45 @@
 import React from "react";
-import { useThings, State } from "../mocks/MockCloud";
+import {
+  State,
+  fetchThings,
+  updateThing,
+  getThing,
+  ThingData,
+} from "../mocks/MockCloud";
 import { useDeviceStore } from "../state/store";
 
-// Singleton to access the cloud state without using hooks directly
-class CloudSyncManager {
-  private static instance: CloudSyncManager;
-  private thingsHook: ReturnType<typeof useThings> | null = null;
-
-  private constructor() {}
-
-  static getInstance(): CloudSyncManager {
-    if (!CloudSyncManager.instance) {
-      CloudSyncManager.instance = new CloudSyncManager();
-    }
-    return CloudSyncManager.instance;
+// Standalone cloud sync functions
+export const getAllCloudDevices = async (): Promise<ThingData[]> => {
+  try {
+    const { things } = await fetchThings();
+    return things;
+  } catch (error) {
+    console.error("Error getting all devices:", error);
+    return [];
   }
+};
 
-  // Initialize with a useThings instance (call this from a React component)
-  initialize(thingsHookInstance: ReturnType<typeof useThings>) {
-    this.thingsHook = thingsHookInstance;
-    console.log("CloudSyncManager initialized with cloud data");
-  }
-
-  // Get a device's state from the cloud
-  getDeviceState(deviceId: string): State | undefined {
-    if (!this.thingsHook) {
-      console.error("CloudSyncManager not initialized!");
-      return undefined;
-    }
-
-    const device = this.thingsHook.things.find(
-      (thing) => thing.id === deviceId
-    );
+export const getCloudDeviceState = async (
+  deviceId: string
+): Promise<State | undefined> => {
+  try {
+    const device = await getThing(deviceId);
     return device?.state;
+  } catch (error) {
+    console.error("Error getting device state:", error);
+    return undefined;
   }
+};
 
-  // Update device state in the cloud, with timestamp comparison
-  async updateDeviceState(deviceId: string, key: string, newState: any) {
-    if (!this.thingsHook) {
-      console.error("CloudSyncManager not initialized!");
-      return;
-    }
-
+export const updateCloudDeviceState = async (
+  deviceId: string,
+  key: string,
+  newState: any,
+  updateLocalStateFn?: (deviceId: string, key: string, state: any) => void
+): Promise<boolean> => {
+  try {
     // Get current cloud state
-    const device = this.thingsHook.things.find(
-      (thing) => thing.id === deviceId
-    );
+    const device = await getThing(deviceId);
     const cloudState = device?.state;
 
     // Compare timestamps
@@ -55,7 +49,7 @@ class CloudSyncManager {
     if (localTimestamp > cloudTimestamp) {
       // Local state is newer, update the cloud
       console.log(
-        `CloudSyncManager: Local state is newer (${localTimestamp} > ${cloudTimestamp}), updating cloud`
+        `Cloud Sync: Local state is newer (${localTimestamp} > ${cloudTimestamp}), updating cloud`
       );
 
       // Create updated state object
@@ -63,60 +57,111 @@ class CloudSyncManager {
       updatedState[key] = newState;
 
       // Update the cloud
-      await this.thingsHook.updateThing(deviceId, updatedState);
+      await updateThing(deviceId, updatedState);
+      return true;
+    } else if (localTimestamp < cloudTimestamp && updateLocalStateFn) {
+      // Cloud state is newer, update local state
+      console.log(
+        `Cloud Sync: Cloud state is newer (${cloudTimestamp} > ${localTimestamp}), updating local state`
+      );
+
+      // Update the local state using the provided function
+      const cloudValue = cloudState?.[key];
+      if (cloudValue) {
+        updateLocalStateFn(deviceId, key, cloudValue);
+      }
+      return true;
     } else {
       console.log(
-        `CloudSyncManager: Cloud state is newer or equal (${cloudTimestamp} >= ${localTimestamp}), no update needed`
+        `Cloud Sync: States have same timestamp (${cloudTimestamp} = ${localTimestamp}), no update needed`
       );
+      return false;
     }
+  } catch (error) {
+    console.error("Error updating device state:", error);
+    return false;
   }
-}
+};
 
-export const cloudSyncManager = CloudSyncManager.getInstance();
-
-// React hook to initialize and use the CloudSyncManager
+// React hook to use cloud sync
 export const useCloudSync = () => {
-  const thingsHook = useThings();
+  const [cloudDevices, setCloudDevices] = React.useState<ThingData[]>([]);
+  const [isLoading, setIsLoading] = React.useState(false);
   const { devices, updateDeviceState } = useDeviceStore();
 
-  // Initialize the manager with the hook instance
+  // Setup periodic sync
   React.useEffect(() => {
-    cloudSyncManager.initialize(thingsHook);
-
-    // Setup periodic sync
     const syncInterval = setInterval(() => {
       syncLocalAndCloud();
     }, 30000); // Every 30 seconds
 
+    // Initial sync
+    syncLocalAndCloud();
+
     return () => clearInterval(syncInterval);
-  }, [thingsHook]);
+  }, [devices]);
 
   // Function to sync cloud changes to local state
-  const syncLocalAndCloud = () => {
-    // For each device in the cloud, check if local state needs update
-    thingsHook.things.forEach((cloudDevice) => {
-      if (cloudDevice.state) {
-        const localDevice = devices[cloudDevice.id];
+  const syncLocalAndCloud = async () => {
+    try {
+      setIsLoading(true);
 
-        // For each state key in the cloud device
-        Object.entries(cloudDevice.state).forEach(([key, cloudRecord]) => {
-          const localRecord = localDevice?.state?.[key];
+      // Get all devices from cloud
+      const cloudThings = await getAllCloudDevices();
+      setCloudDevices(cloudThings);
 
-          // If local record doesn't exist or cloud record is newer
-          if (!localRecord || cloudRecord.lastUpdate > localRecord.lastUpdate) {
-            console.log(
-              `CloudSync: Cloud has newer state for ${cloudDevice.id}:${key}, updating local`
-            );
-            updateDeviceState(cloudDevice.id, key, cloudRecord);
-          }
-        });
+      // For each device in the cloud, check if local state needs update
+      for (const cloudDevice of cloudThings) {
+        if (cloudDevice.state) {
+          const localDevice = devices[cloudDevice.id];
+
+          // For each state key in the cloud device
+          Object.entries(cloudDevice.state).forEach(([key, cloudRecord]) => {
+            const localRecord = localDevice?.state?.[key];
+
+            // If local record doesn't exist or cloud record is newer
+            if (
+              !localRecord ||
+              cloudRecord.lastUpdate > localRecord.lastUpdate
+            ) {
+              console.log(
+                `CloudSync: Cloud has newer state for ${cloudDevice.id}:${key}, updating local`
+              );
+              updateDeviceState(cloudDevice.id, key, cloudRecord);
+            } else if (
+              localRecord &&
+              localRecord.lastUpdate > cloudRecord.lastUpdate
+            ) {
+              // Local state is newer, update cloud
+              updateCloudDeviceState(cloudDevice.id, key, localRecord);
+            }
+          });
+        }
       }
-    });
+    } catch (error) {
+      console.error("Error syncing with cloud:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update function that handles bi-directional sync
+  const updateDeviceStateAndSync = async (
+    deviceId: string,
+    key: string,
+    newState: any
+  ) => {
+    // First update local state
+    updateDeviceState(deviceId, key, newState);
+
+    // Then sync with cloud
+    await updateCloudDeviceState(deviceId, key, newState, updateDeviceState);
   };
 
   return {
     syncNow: syncLocalAndCloud,
-    cloudDevices: thingsHook.things,
-    isLoading: thingsHook.isLoading,
+    cloudDevices,
+    isLoading,
+    updateDeviceStateAndSync,
   };
 };

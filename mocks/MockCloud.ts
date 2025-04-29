@@ -12,7 +12,7 @@ export type State = {
   };
 };
 
-type ThingData = {
+export type ThingData = {
   id: string;
   deviceType: string;
   partNumber: string;
@@ -21,27 +21,94 @@ type ThingData = {
   createdAt: number;
 };
 
-export const updateThing = async (thingId: string, state: State) => {
+// File utilities
+export const ensureCloudFileExists = async (): Promise<boolean> => {
   try {
     const fileExists = await FileSystem.getInfoAsync(CLOUD_FILE_PATH);
     if (!fileExists.exists) {
-      console.error("Cloud file does not exist.");
-      return;
+      await FileSystem.writeAsStringAsync(CLOUD_FILE_PATH, JSON.stringify([]));
     }
+    return true;
+  } catch (error) {
+    console.error("Error ensuring cloud file exists:", error);
+    return false;
+  }
+};
 
+export const readCloudData = async (): Promise<ThingData[]> => {
+  try {
+    await ensureCloudFileExists();
     const data = await FileSystem.readAsStringAsync(CLOUD_FILE_PATH);
-    const things: ThingData[] = JSON.parse(data);
+    return JSON.parse(data) as ThingData[];
+  } catch (error) {
+    console.error("Error reading cloud data:", error);
+    return [];
+  }
+};
+
+export const writeCloudData = async (things: ThingData[]): Promise<boolean> => {
+  try {
+    await FileSystem.writeAsStringAsync(
+      CLOUD_FILE_PATH,
+      JSON.stringify(things)
+    );
+    return true;
+  } catch (error) {
+    console.error("Error writing cloud data:", error);
+    return false;
+  }
+};
+
+// Fetch things from cloud storage
+export const fetchThings = async (): Promise<{
+  things: ThingData[];
+  thingsCount: Record<string, number>;
+}> => {
+  try {
+    const thingsData = await readCloudData();
+
+    // Calculate counts
+    const count = thingsData.reduce((acc: any, thing: ThingData) => {
+      acc[thing.deviceType] = (acc[thing.deviceType] || 0) + 1;
+      return acc;
+    }, {});
+
+    return {
+      things: thingsData,
+      thingsCount: { ...count, total: thingsData.length },
+    };
+  } catch (error) {
+    console.error("Error fetching things:", error);
+    return { things: [], thingsCount: { total: 0 } };
+  }
+};
+
+export const updateThing = async (thingId: string, state: State) => {
+  try {
+    const things = await readCloudData();
 
     const updatedThings = things.map((thing) =>
       thing.id === thingId ? { ...thing, state } : thing
     );
 
-    await FileSystem.writeAsStringAsync(
-      CLOUD_FILE_PATH,
-      JSON.stringify(updatedThings)
-    );
+    await writeCloudData(updatedThings);
+    return true;
   } catch (error) {
     console.error("Error updating thing:", error);
+    return false;
+  }
+};
+
+// Get a specific thing by ID
+export const getThing = async (
+  thingId: string
+): Promise<ThingData | undefined> => {
+  try {
+    const things = await readCloudData();
+    return things.find((thing) => thing.id === thingId);
+  } catch (error) {
+    console.error("Error getting thing:", error);
+    return undefined;
   }
 };
 
@@ -58,50 +125,37 @@ export const useThings = (): {
   const [isLoading, setIsLoading] = React.useState(false);
   const [error, setError] = React.useState<Error | null>(null);
   const [things, setThings] = React.useState<ThingData[]>([]);
-  const [thingsCount, setThingsCount] = React.useState({});
-
-  const fetchThings = async () => {
-    try {
-      setIsLoading(true);
-      const fileExists = await FileSystem.getInfoAsync(CLOUD_FILE_PATH);
-      if (!fileExists.exists) {
-        await FileSystem.writeAsStringAsync(
-          CLOUD_FILE_PATH,
-          JSON.stringify([])
-        );
-        setThings([]);
-      } else {
-        const data = await FileSystem.readAsStringAsync(CLOUD_FILE_PATH);
-        const thingsData = JSON.parse(data);
-        setThings(thingsData);
-        const count = thingsData.reduce((acc: any, thing: ThingData) => {
-          acc[thing.deviceType] = (acc[thing.deviceType] || 0) + 1;
-          return acc;
-        }, {});
-        setThingsCount({ ...count, total: thingsData.length });
-      }
-    } catch (error) {
-      setError(error as Error);
-      console.error("Error fetching things:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [thingsCount, setThingsCount] = React.useState<Record<string, number>>(
+    {}
+  );
 
   // Load things from the file on initialization
   React.useEffect(() => {
-    fetchThings();
+    const loadThings = async () => {
+      try {
+        setIsLoading(true);
+        const result = await fetchThings();
+        setThings(result.things);
+        setThingsCount(result.thingsCount);
+      } catch (error) {
+        setError(error as Error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadThings();
   }, []);
 
   // Save things to the file whenever they are updated
   const saveThingsToFile = async (updatedThings: ThingData[]) => {
     try {
       setThings(updatedThings); // Update the state
-      await FileSystem.writeAsStringAsync(
-        CLOUD_FILE_PATH,
-        JSON.stringify(updatedThings)
-      );
-      fetchThings(); // Re-fetch things to update the count
+      await writeCloudData(updatedThings);
+
+      // Update counts
+      const result = await fetchThings();
+      setThingsCount(result.thingsCount);
     } catch (error) {
       console.error("Error saving things to file:", error);
     }
@@ -132,7 +186,9 @@ export const useThings = (): {
 
   const updateThingInHook = async (thingId: string, state: State) => {
     await updateThing(thingId, state); // Reuse the independent function
-    fetchThings(); // Refresh the local state
+    const result = await fetchThings(); // Refresh the local state
+    setThings(result.things);
+    setThingsCount(result.thingsCount);
   };
 
   const deleteThing = async (thingId: string) => {
@@ -148,6 +204,7 @@ export const useThings = (): {
     try {
       await FileSystem.deleteAsync(CLOUD_FILE_PATH);
       setThings([]); // Clear the state
+      setThingsCount({ total: 0 });
     } catch (error) {
       console.error("Error deleting all things:", error);
     }
