@@ -27,7 +27,7 @@ export class BLEEventHandler {
     });
 
     // Handle pressure level change events
-    BLEManager.on("pressureLevelChange", (data) => {
+    BLEManager.on("pressureLevelChanged", (data) => {
       console.log("BLE Event: Pressure level changed", data);
 
       // Update the store with the new pressure level
@@ -40,7 +40,7 @@ export class BLEEventHandler {
   static cleanup() {
     BLEManager.off("deviceConnected");
     BLEManager.off("deviceDisconnected");
-    BLEManager.off("pressureLevelChange");
+    BLEManager.off("pressureLevelChanged");
     this.initialized = false;
   }
 }
