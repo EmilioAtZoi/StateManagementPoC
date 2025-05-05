@@ -1,4 +1,4 @@
-import { DeviceEventEmitter } from "react-native";
+import { DeviceEventEmitter, Pressable } from "react-native";
 
 export class MockBLEDevice {
   public id: string; // Unique identifier for the device
@@ -29,6 +29,16 @@ export class MockBLEDevice {
       DeviceEventEmitter.emit("connectionChange", {
         id: id ?? this.id,
         connected: this.connected,
+      });
+    }
+  }
+
+  setPressureLevel(id: string, level: number): void {
+    if (this.connected) {
+      DeviceEventEmitter.emit("pressureLevelChange", {
+        id: id ?? this.id,
+        key: "pressureLevel",
+        record: { value: level, lastUpdate: Date.now() },
       });
     }
   }
@@ -65,21 +75,17 @@ export class MockBLEDevice {
   }
 
   // Subscribe to device status changes
-  onDeviceStatusChange(
-    callback: (id: string, status: { connected: boolean }) => void
+  onPressureLevelChange(
+    callback: (id: string, pressureLevel: number) => void
   ): void {
-    DeviceEventEmitter.addListener("deviceStatusChange", (data: any) => {
-      const { id, status } = data;
-      if (status && typeof status.connected === "boolean") {
-        callback(id, status);
-      } else {
-        console.error("Invalid status payload:", status);
-      }
+    DeviceEventEmitter.addListener("pressureLevelChange", (data: any) => {
+      const { id, pressureLevel } = data;
+      callback(id, pressureLevel);
     });
   }
 
   // Unsubscribe from device status changes
   offDeviceStatusChange(): void {
-    DeviceEventEmitter.removeAllListeners("deviceStatusChange");
+    DeviceEventEmitter.removeAllListeners("pressureLevelChange");
   }
 }

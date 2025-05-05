@@ -1,16 +1,24 @@
 import React from "react";
-import { StyleSheet, Text, View, Button } from "react-native";
+import { StyleSheet, Text, View, Button, TouchableOpacity } from "react-native";
 import { BLEManager } from "../ble/bleManager";
 import { useDeviceStore } from "../state/store";
 import { useThings } from "../mocks/MockCloud";
 
+type CardProps = {
+  id: string;
+  name?: string;
+  type?: string;
+  onDelete: (id: string) => void;
+  onPress?: () => void;
+};
+
 export const Card = ({
   id,
+  name = "Unknown Device",
+  type = "Unknown",
   onDelete,
-}: {
-  id: string;
-  onDelete: (id: string) => unknown;
-}) => {
+  onPress,
+}: CardProps) => {
   const { things } = useThings();
   const thing = things.find((thing) => thing.id === id);
   const { devices } = useDeviceStore();
@@ -28,23 +36,33 @@ export const Card = ({
   };
 
   return (
-    <View style={styles.card}>
-      <View style={styles.contentWrapper}>
+    <TouchableOpacity
+      style={styles.card}
+      onPress={onPress}
+      activeOpacity={onPress ? 0.7 : 1}
+    >
+      <View style={styles.cardContent}>
         <View>
-          <Text>{thing?.name}</Text>
-          <Text>Device Type: {thing?.deviceType}</Text>
-          <Text>Part Number: {thing?.partNumber}</Text>
+          <Text style={styles.title}>{name}</Text>
+          <Text style={styles.subtitle}>
+            {type} - {id.substring(0, 8)}
+          </Text>
         </View>
-        <View style={styles.deleteButtonWrapper}>
-          <Button title="X" onPress={() => onDelete(id)} color="black" />
-        </View>
+        <Button
+          title="X"
+          onPress={(e) => {
+            e.stopPropagation();
+            onDelete(id);
+          }}
+          color="red"
+        />
       </View>
       {isOnline ? (
         <Button title="Disconnect" onPress={disconnectFromDevice} />
       ) : (
         <Button title="Connect" onPress={connectToDevice} />
       )}
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -72,5 +90,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginBottom: 8,
+  },
+  cardContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  subtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 4,
   },
 });

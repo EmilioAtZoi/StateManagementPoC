@@ -17,12 +17,12 @@ export class BLEManager {
       }
     );
 
-    // Subscribe to device status changes from the mock device
-    BLEManager.mockDevice.onDeviceStatusChange((id, status) => {
-      DeviceEventEmitter.emit("stateChange", {
+    BLEManager.mockDevice.onPressureLevelChange((id: string, level: number) => {
+      console.log("BLEManager: Pressure level changed", id, level);
+      DeviceEventEmitter.emit("pressureLevelChanged", {
         id: id,
-        key: "status",
-        record: { value: status, lastUpdate: Date.now() },
+        key: "pressureLevel",
+        record: { value: level, lastUpdate: Date.now() },
       });
     });
   }
@@ -39,15 +39,23 @@ export class BLEManager {
     }, 1000);
   }
 
+  static async setPressureLevel(id: string, level: number) {
+    setTimeout(() => {
+      BLEManager.mockDevice.setPressureLevel(id, level); // Trigger the mock device pressure level change
+    }, 1000);
+  }
+
   // Public methods to access events
   static on(
-    event: "deviceConnected" | "deviceDisconnected" | "stateChange",
+    event: "deviceConnected" | "deviceDisconnected" | "pressureLevelChanged",
     listener: (data: { id: string; key: string; record: any }) => void
   ) {
     DeviceEventEmitter.addListener(event, listener);
   }
 
-  static off(event: "deviceConnected" | "deviceDisconnected" | "stateChange") {
+  static off(
+    event: "deviceConnected" | "deviceDisconnected" | "pressureLevelChanged"
+  ) {
     DeviceEventEmitter.removeAllListeners(event);
   }
 }
