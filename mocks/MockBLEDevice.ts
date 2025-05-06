@@ -1,14 +1,16 @@
-import { DeviceEventEmitter, Pressable } from "react-native";
+import { DeviceEventEmitter } from "react-native";
 
 export class MockBLEDevice {
   public id: string; // Unique identifier for the device
   private connected: boolean;
   private batteryLevel: number;
+  private pressureLevel: number;
 
   constructor() {
     this.id = "mock-device-id"; // Unique identifier for the mock device
     this.connected = false;
     this.batteryLevel = 100; // Default battery level
+    this.pressureLevel = 0; // Default pressure level
   }
 
   // Connect to the mock device
@@ -35,10 +37,10 @@ export class MockBLEDevice {
 
   setPressureLevel(id: string, level: number): void {
     if (this.connected) {
+      this.pressureLevel = level;
       DeviceEventEmitter.emit("pressureLevelChange", {
         id: id ?? this.id,
-        key: "pressureLevel",
-        record: { value: level, lastUpdate: Date.now() },
+        level: this.pressureLevel,
       });
     }
   }
@@ -51,6 +53,11 @@ export class MockBLEDevice {
   // Get the current battery status
   getBatteryStatus(): number {
     return this.batteryLevel;
+  }
+
+  // Get the current pressure level
+  getPressureLevel(): number {
+    return this.pressureLevel;
   }
 
   // Simulate battery drain (optional for testing)
@@ -75,12 +82,11 @@ export class MockBLEDevice {
   }
 
   // Subscribe to device status changes
-  onPressureLevelChange(
-    callback: (id: string, pressureLevel: number) => void
-  ): void {
+  onPressureLevelChange(callback: (id: string, level: number) => void): void {
     DeviceEventEmitter.addListener("pressureLevelChange", (data: any) => {
-      const { id, pressureLevel } = data;
-      callback(id, pressureLevel);
+      const { id, level } = data;
+      console.log("Pressure level change event received", data);
+      callback(id, level);
     });
   }
 
