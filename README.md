@@ -14,8 +14,8 @@ Based on the current state management observations, here are the key use cases t
 
 **Local State Management:**
 
-- Maintain a local state for BLE devices, peripherals, and cloud-synced data.
-- Track BLE connection states, module states, and device states.
+- Maintain a local state for BLE devices.
+- Track BLE state changes and update the local state.
 
 **Cloud Synchronization:**
 
@@ -40,12 +40,7 @@ Based on the current state management observations, here are the key use cases t
 **Compatibility with Legacy and New APIs:**
 
 - Support both legacy and new APIs for cloud synchronization.
-- Use a bridge to handle compatibility between different APIs.
-
-**Scalability:**
-
-- Handle multiple devices and peripherals simultaneously.
-- Ensure the system scales as the number of devices increases.
+- Use the bridge to handle compatibility between APIs.
 
 ### Sequence Diagram
 
@@ -178,7 +173,7 @@ The new architecture for state management introduces the following enhancements:
 
 **State Structure:**
 
-- Maintain a centralized store for BLE states, device states, and cloud states.
+- Maintain a centralized store for BLE states.
 - Use timestamps to track the last update for each state.
 
 **Queue System:**
