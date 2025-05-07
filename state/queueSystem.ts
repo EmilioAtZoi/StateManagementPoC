@@ -1,5 +1,10 @@
 import { updateCloudDeviceState } from "../services/syncService";
-import { useDeviceStore } from "./store";
+
+// Type for state record to avoid circular imports
+export type StateRecord = {
+  value: any;
+  lastUpdate: number;
+};
 
 type QueueItem = {
   type: string;
@@ -169,15 +174,11 @@ class QueueSystem {
       `QueueSystem: Syncing updated state for device with ID ${payload.id}, key "${payload.key}"`
     );
     try {
-      // Get the store's update function directly
-      const updateDeviceState = useDeviceStore.getState().updateDeviceState;
-
-      // Use cloud sync with ability to update local state if cloud is newer
+      // IMPORTANT: Only send to cloud, no store update here
       const success = await updateCloudDeviceState(
         payload.id,
         payload.key,
-        payload.record,
-        updateDeviceState // Pass the store's update function
+        payload.record
       );
 
       if (success) {

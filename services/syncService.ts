@@ -34,8 +34,7 @@ export const getCloudDeviceState = async (
 export const updateCloudDeviceState = async (
   deviceId: string,
   key: string,
-  newState: any,
-  updateLocalStateFn?: (deviceId: string, key: string, state: any) => void
+  newState: any
 ): Promise<boolean> => {
   try {
     // Get current cloud state
@@ -59,21 +58,9 @@ export const updateCloudDeviceState = async (
       // Update the cloud
       const updateSuccess = await updateThing(deviceId, updatedState);
       return updateSuccess; // Return success status from updateThing
-    } else if (localTimestamp < cloudTimestamp && updateLocalStateFn) {
-      // Cloud state is newer, update local state
-      console.log(
-        `Cloud Sync: Cloud state is newer (${cloudTimestamp} > ${localTimestamp}), updating local state`
-      );
-
-      // Update the local state using the provided function
-      const cloudValue = cloudState?.[key];
-      if (cloudValue) {
-        updateLocalStateFn(deviceId, key, cloudValue);
-      }
-      return true; // Success - no cloud update needed, local update done
     } else {
       console.log(
-        `Cloud Sync: States have same timestamp (${cloudTimestamp} = ${localTimestamp}), no update needed`
+        `Cloud Sync: Local state is not newer than cloud (${localTimestamp} <= ${cloudTimestamp}), no update needed`
       );
       return true; // Success - no update needed
     }
@@ -127,13 +114,8 @@ export const useCloudSync = () => {
               console.log(
                 `CloudSync: Cloud has newer state for ${cloudDevice.id}:${key}, updating local`
               );
-              updateDeviceState(cloudDevice.id, key, cloudRecord);
-            } else if (
-              localRecord &&
-              localRecord.lastUpdate > cloudRecord.lastUpdate
-            ) {
-              // Local state is newer, update cloud
-              updateCloudDeviceState(cloudDevice.id, key, localRecord);
+              // Pass false to prevent triggering a cloud sync back
+              updateDeviceState(cloudDevice.id, key, cloudRecord, false);
             }
           });
         }
@@ -154,8 +136,8 @@ export const useCloudSync = () => {
     // First update local state
     updateDeviceState(deviceId, key, newState);
 
-    // Then sync with cloud
-    await updateCloudDeviceState(deviceId, key, newState, updateDeviceState);
+    // Direct cloud update (bypassing queue for UI-triggered updates)
+    await updateCloudDeviceState(deviceId, key, newState);
   };
 
   return {
