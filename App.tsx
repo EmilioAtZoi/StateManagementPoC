@@ -10,6 +10,7 @@ import { AddDevice } from "./components/AddDevice";
 import { useThings } from "./mocks/MockCloud";
 import { BLEManager } from "./ble/bleManager";
 import { BLEEventHandler } from "./eventHandlers/bleEventHandler";
+import { QueueSystem } from "./state/queueSystem";
 
 // Create a simple Home screen
 const HomeScreen = ({ navigation }: any) => {
@@ -78,6 +79,8 @@ export default function App() {
     return () => {
       // Cleanup BLEEventHandler
       BLEEventHandler.cleanup();
+      // Clean up QueueSystem timeouts
+      QueueSystem.cleanup();
     };
   }, []);
 

@@ -57,8 +57,8 @@ export const updateCloudDeviceState = async (
       updatedState[key] = newState;
 
       // Update the cloud
-      await updateThing(deviceId, updatedState);
-      return true;
+      const updateSuccess = await updateThing(deviceId, updatedState);
+      return updateSuccess; // Return success status from updateThing
     } else if (localTimestamp < cloudTimestamp && updateLocalStateFn) {
       // Cloud state is newer, update local state
       console.log(
@@ -70,16 +70,16 @@ export const updateCloudDeviceState = async (
       if (cloudValue) {
         updateLocalStateFn(deviceId, key, cloudValue);
       }
-      return true;
+      return true; // Success - no cloud update needed, local update done
     } else {
       console.log(
         `Cloud Sync: States have same timestamp (${cloudTimestamp} = ${localTimestamp}), no update needed`
       );
-      return false;
+      return true; // Success - no update needed
     }
   } catch (error) {
     console.error("Error updating device state:", error);
-    return false;
+    return false; // Failure - let the queue system retry
   }
 };
 
