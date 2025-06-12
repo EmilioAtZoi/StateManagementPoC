@@ -24,7 +24,7 @@ Based on the current state management observations, here are the key use cases t
 
 **Conflict Resolution:**
 
-- Use timestamps to compare local and cloud states and resolve conflicts.
+- Use increments to compare local and cloud states and resolve conflicts.
 - Ensure the most recent state is always used.
 
 **Queue-Based State Processing:**
@@ -42,7 +42,11 @@ Based on the current state management observations, here are the key use cases t
 - Support both legacy and new APIs for cloud synchronization.
 - Use the bridge to handle compatibility between APIs.
 
-### Sequence Diagram
+### Indirect devices
+
+- Indirect devices connect to the phone and state changes are reported to the local state.
+
+#### Sequence Diagram Indirect Device
 
 ```mermaid
 sequenceDiagram
@@ -52,23 +56,22 @@ sequenceDiagram
     participant Cloud as Cloud Server
 
     BLEDevice->>LocalState: Update BLE values
-    LocalState->>CloudState: Compare timestamps (local vs cloud)
+    LocalState->>CloudState: Compare increments (local vs cloud)
     CloudState->>Cloud: Fetch latest state
     Cloud-->>CloudState: Return cloud state
     CloudState->>LocalState: Update local state if cloud is newer
     LocalState->>Cloud: Push updated state to cloud (if local is newer)
-    Cloud-->>CloudState: Acknowledge update
 ```
 
-### Explanation of the Flow:
+#### Explanation of the indirect devices flow:
 
 1. **BLE Device Updates Local State:**
 
    - BLE device sends updated values to the local state.
 
-2. **Timestamp Comparison:**
+2. **Comparison:**
 
-   - Compares the local state timestamp with the cloud state timestamp.
+   - Compares the local state increments with the cloud state increments.
 
 3. **Fetch Cloud State:**
 
@@ -82,8 +85,48 @@ sequenceDiagram
 
    - If the local state is newer, pushes the updated state to the cloud server.
 
-6. **Cloud Acknowledges Update:**
-   - The cloud server acknowledges the update, ensuring synchronization.
+### Direct devices
+
+- Direct devices connect directly with the cloud and changes on the state are reported from the device to the cloud.
+
+#### Sequence Diagram Direct Device
+
+```mermaid
+sequenceDiagram
+    participant BLEDevice as BLE Device
+    participant LocalState as Local State
+    participant CloudState as Cloud State
+    participant Cloud as Cloud Server
+
+    BLEDevice->>Cloud: Update BLE values
+    Cloud->>CloudState: Update cloud state
+    CloudState->>LocalState: Compare increments (cloud vs local)
+    LocalState->>Cloud: Push updated state to cloud (if local is newer)
+    CloudState->>LocalState: Update local state if cloud is newer
+
+```
+
+#### Explanation of the direct devices flow:
+
+1. **BLE Device Updates Cloud Server:**
+
+   - BLE device sends updated values to the cloud.
+
+2. **Cloud Server updates cloud state**
+
+   - The state changes are stored into the cloud state.
+
+3. **Comparison**
+
+   - Compares the cloud state increments with the local state increments.
+
+4. **Push Updates to Cloud:**
+
+   - If the local state is newer, pushes the updated state to the cloud server.
+
+5. **Update Local State:**
+
+   - If the cloud state is newer, updates store with the cloud state.
 
 ### Changes and Improvements
 
@@ -91,29 +134,28 @@ The new architecture for state management introduces the following enhancements:
 
 #### Summary of Improvements
 
-| Aspect              | Current Implementation                                 | New Architecture                                           |
-| ------------------- | ------------------------------------------------------ | ---------------------------------------------------------- |
-| State Management    | Multiple independent stores (bleStore, bleModuleStore) | Centralized state management (e.g., Zustand)               |
-| Conflict Resolution | No explicit conflict resolution                        | Timestamp-based conflict resolution                        |
-| Queue Management    | Sequential processing only                             | Enhanced queue with retries and prioritization             |
-| Event Handling      | Tightly coupled with specific stores                   | Modular event-driven architecture                          |
-| BLE-Cloud Sync      | Separate management of BLE and cloud states            | Bidirectional synchronization between BLE and cloud states |
-| Scalability         | Hard to scale or extend                                | Modular and extensible design                              |
-| Debugging           | Limited observability                                  | Built-in debugging tools from state management libraries   |
-| BLE Module State    | Managed separately in bleModuleStore                   | Integrated into the centralized state store                |
+| Aspect              | New Architecture                                           |
+| ------------------- | ---------------------------------------------------------- |
+| State Management    | Centralized state management (e.g., Zustand)               |
+| Conflict Resolution | increments-based conflict resolution                       |
+| Queue Management    | Enhanced queue with retries and prioritization             |
+| BLE-Cloud Sync      | Bidirectional synchronization between BLE and cloud states |
+| Scalability         | Modular and extensible design                              |
+| Debugging           | Built-in debugging tools from state management libraries   |
+| BLE Module State    | Integrated into the centralized state store                |
 
 1. **Centralized State Management**
 
-- Introduces a centralized state management system (e.g., Zustand or similar) to manage all device-related states (BLE, MQTT, cloud synchronization) in one place.
+- Introduces a centralized state management system (e.g., Zustand or similar) to manage all device-related states in one place.
 - Centralized state ensures consistency and reduces the complexity of managing multiple independent stores.
 
   **_Improvement:_**
 
   > Simplifies state management by consolidating all device-related states into a single store and reduces the risk of state mismatches or inconsistencies between different stores.
 
-2. **Timestamp-Based Conflict Resolution**
+2. **increments-Based Conflict Resolution**
 
-- Introduces timestamp-based conflict resolution to compare local and cloud states and ensure the most recent state is used.
+- Introduces increments conflict resolution to compare local and cloud states and ensure the most recent state is used.
 - Local state updates are prioritized if they are more recent than the cloud state, and vice versa.
 
   **_Improvement:_**
@@ -129,35 +171,28 @@ The new architecture for state management introduces the following enhancements:
 
   > Improves reliability by handling failed updates gracefully and ensuring critical state changes are processed first and provides better control over the order and priority of state updates.
 
-4. **Event-Driven Architecture**
-
-- Adopts a more modular event-driven architecture where events are decoupled from specific stores and handled by a centralized event handler.
-- Events trigger updates to the centralized state store, which then propagates changes to the UI and cloud.
-  **_Improvement:_**
-  > Decouples event handling from specific stores, making the system more modular and easier to maintain and ensures that all state changes are processed consistently through the centralized state store.
-
-5. **BLE and Cloud State Synchronization**
+4. **BLE and Cloud State Synchronization**
 
 - Introduces a bidirectional synchronization mechanism between BLE and cloud states.
 - BLE state changes are reported to the cloud, and cloud state changes are fetched and merged into the local state.
   **_Improvement:_**
   > Ensures that BLE and cloud states are always in sync, reducing the risk of mismatches and provides a feedback loop to update the local state based on cloud changes.
 
-6. **Scalability and Extensibility**
+5. **Scalability and Extensibility**
 
 - Designed with scalability and extensibility in mind, using a modular approach to state management.
 - New state types or features can be added by extending the centralized state store and event handlers.
   **_Improvement:_**
   > Makes it easier to add new features or state types without disrupting the existing system and ensures the system can scale to handle more devices, peripherals, or state types in the future.
 
-7. Improved Debugging and Observability
+6. Improved Debugging and Observability
 
 - Leverages state management libraries (e.g., Zustand, Redux) with built-in debugging tools to track state changes.
 - Provides better observability into the state and queue processing.
   **_Improvement:_**
   > Makes it easier to debug state changes and identify issues in the state management system and improves developer productivity and reduces the time required to troubleshoot issues.
 
-8. Unified State for BLE Modules
+7. Unified State for BLE Modules
 
 - Integrates BLE module state into the centralized state store, along with BLE connection states and device states.
 - BLE module state changes are handled consistently with other state types.
@@ -169,35 +204,42 @@ The new architecture for state management introduces the following enhancements:
 **State Management Library:**
 
 - Use Zustand for local state management (lightweight and reactive).
-- Integrate use queries for cloud synchronization.
+- Use immer for simplify updates.
 
 **State Structure:**
 
 - Maintain a centralized store for BLE states.
-- Use timestamps to track the last update for each state.
+- Use vector clock to track the last update for each state by incrementing the own logical clock.
 
 **Queue System:**
 
 - Implement a queue for sequential state processing.
 - Retry failed updates and handle errors gracefully.
 
-**Event System:**
-
-- Use an event-driven architecture to detect and handle state changes.
-- Emit events for state updates to notify other parts of the system.
-
 **Cloud Integration:**
 
 - Use queries to fetch and update cloud states.
-- Handle compatibility with legacy and new APIs using a bridge.
+
+### State management flowchart
 
 ```mermaid
-    graph TD
-        A[BLE Device] -->|State Changes| B[Local Store]
-        B -->|Push Updates| C[Queue System]
-        C -->|Sequential Processing| D[Cloud Sync]
-        D -->|Fetch Latest State| B
-        B -->|Emit Events| E[Event System]
-        E -->|Notify| F[UI Components]
-        D -->|Handle Legacy/New APIs| G[API Bridge]
+flowchart TD
+    BLE["BLE Device"] -- State change is reported --> Local["Local Store"] & Cloud["Cloud Store"]
+    Local & Cloud -- trigger sync --> Resolver{"Are stores in sync?"}
+    Local & Cloud -. Read current state .-> Resolver
+    Local -- Refresh --> UI["UI Components"]
+    Resolver -- yes --> End((END))
+    Resolver -- no --> Queue["Queue system"]
+    Queue -- Sync with local store --> Local
+    Queue -- Sync with cloud store --> Cloud
+    Queue -- retry on failure --> Queue
+
+    style Local fill:#BBDEFB,stroke:#2962FF
+    style Cloud fill:#FFCDD2,stroke:#D50000
+    linkStyle 0 stroke:#2962FF
+    linkStyle 1 stroke:#D50000
+    linkStyle 2 stroke:#2962FF
+    linkStyle 3 stroke:#D50000
+    linkStyle 9 stroke:#D50000
+    linkStyle 10 stroke:#2962FF
 ```
