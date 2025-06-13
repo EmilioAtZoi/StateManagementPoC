@@ -32,15 +32,9 @@ Based on the current state management observations, here are the key use cases t
 - Process state changes sequentially to avoid race conditions.
 - Retry failed state updates automatically.
 
-**Event-Driven Updates:**
-
-- Use event listeners to detect state changes and trigger updates.
-- Emit events for state updates to notify other parts of the system.
-
 **Compatibility with Legacy and New APIs:**
 
 - Support both legacy and new APIs for cloud synchronization.
-- Use the bridge to handle compatibility between APIs.
 
 ### Indirect devices
 
@@ -61,6 +55,7 @@ sequenceDiagram
     Cloud-->>CloudState: Return cloud state
     CloudState->>LocalState: Update local state if cloud is newer
     LocalState->>Cloud: Push updated state to cloud (if local is newer)
+    Cloud->>CloudState: Update cloud state
 ```
 
 #### Explanation of the indirect devices flow:
@@ -138,11 +133,9 @@ The new architecture for state management introduces the following enhancements:
 | ------------------- | ---------------------------------------------------------- |
 | State Management    | Centralized state management (e.g., Zustand)               |
 | Conflict Resolution | increments-based conflict resolution                       |
-| Queue Management    | Enhanced queue with retries and prioritization             |
+| Queue Management    | Enhanced queue with retries                                |
 | BLE-Cloud Sync      | Bidirectional synchronization between BLE and cloud states |
 | Scalability         | Modular and extensible design                              |
-| Debugging           | Built-in debugging tools from state management libraries   |
-| BLE Module State    | Integrated into the centralized state store                |
 
 1. **Centralized State Management**
 
@@ -164,16 +157,16 @@ The new architecture for state management introduces the following enhancements:
 
 3. **Enhanced Queue Management**
 
-- Enhances the queue system to handle retries for failed updates and prioritize critical state changes.
+- Enhances the queue system to handle retries for failed updates.
 - Integrates the queue with the centralized state management system to ensure seamless synchronization between local and cloud states.
 
   **_Improvement:_**
 
-  > Improves reliability by handling failed updates gracefully and ensuring critical state changes are processed first and provides better control over the order and priority of state updates.
+  > Improves reliability by handling failed updates gracefully and sequentially retries the failed ones to avoid inconsistencies.
 
 4. **BLE and Cloud State Synchronization**
 
-- Introduces a bidirectional synchronization mechanism between BLE and cloud states.
+- Introduces a bidirectional synchronization mechanism between Local and cloud states.
 - BLE state changes are reported to the cloud, and cloud state changes are fetched and merged into the local state.
   **_Improvement:_**
   > Ensures that BLE and cloud states are always in sync, reducing the risk of mismatches and provides a feedback loop to update the local state based on cloud changes.
@@ -184,20 +177,6 @@ The new architecture for state management introduces the following enhancements:
 - New state types or features can be added by extending the centralized state store and event handlers.
   **_Improvement:_**
   > Makes it easier to add new features or state types without disrupting the existing system and ensures the system can scale to handle more devices, peripherals, or state types in the future.
-
-6. Improved Debugging and Observability
-
-- Leverages state management libraries (e.g., Zustand, Redux) with built-in debugging tools to track state changes.
-- Provides better observability into the state and queue processing.
-  **_Improvement:_**
-  > Makes it easier to debug state changes and identify issues in the state management system and improves developer productivity and reduces the time required to troubleshoot issues.
-
-7. Unified State for BLE Modules
-
-- Integrates BLE module state into the centralized state store, along with BLE connection states and device states.
-- BLE module state changes are handled consistently with other state types.
-  **_Improvement:_**
-  > Reduces duplication and ensures consistency in how BLE module state is managed and reported and simplifies the codebase by consolidating BLE module state into the centralized state store.
 
 ### Proposed Architecture for the New State Management
 
